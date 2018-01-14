@@ -15,7 +15,9 @@ import com.damianogiusti.taskdecorator.internal.UnaryFunction;
  */
 public abstract class AbstractTask<I, O> implements Task<I, O> {
 
+  private AsyncTaskFactory asyncTaskFactory = new AsyncTaskFactory();
   private AsyncTask<I, Void, Object> asyncTask;
+
   UnaryFunction<O> onSuccess = null;
   UnaryFunction<Throwable> onError = null;
   Function onStarted = null;
@@ -69,7 +71,7 @@ public abstract class AbstractTask<I, O> implements Task<I, O> {
 
   @NonNull @Override public CancelableTask execute(@Nullable I param) {
     if (asyncTask == null) {
-      asyncTask = new BaseAsyncTask<>(this);
+      asyncTask = asyncTaskFactory.createAsyncTask(this);
       //noinspection unchecked
       asyncTask.execute(param);
     }

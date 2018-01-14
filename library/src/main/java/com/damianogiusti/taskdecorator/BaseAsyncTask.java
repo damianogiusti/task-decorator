@@ -32,8 +32,7 @@ class BaseAsyncTask<I, O> extends AsyncTask<I, Void, Object> {
     }
   }
 
-  @SafeVarargs
-  @Override protected final Object doInBackground(I... params) {
+  @Override protected Object doInBackground(I... params) {
     try {
       I param = params[0];
       return realTask.run(param);
