@@ -99,15 +99,25 @@ public abstract class AbstractTask<I, O> implements Task<I, O> {
     return this;
   }
 
+  ///////////////////////////////////////////////////////////////////////////
+  // CancelableTask
+  ///////////////////////////////////////////////////////////////////////////
+
   @CallSuper @Override public void cancel() {
     if (asyncTask != null) {
       asyncTask.cancel(true);
     }
-    chainedTask = null;
+    if (chainedTask != null) {
+      chainedTask.cancel();
+      chainedTask = null;
+    }
+    if (subsequentTask != null) {
+      subsequentTask.cancel();
+      subsequentTask = null;
+    }
     onSuccess = null;
     onError = null;
     onStarted = null;
-    chainedTask = null;
     onCompleted = null;
   }
 

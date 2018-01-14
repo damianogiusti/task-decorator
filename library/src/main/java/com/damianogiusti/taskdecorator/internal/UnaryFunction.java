@@ -5,5 +5,5 @@ package com.damianogiusti.taskdecorator.internal;
  */
 public interface UnaryFunction<T> {
 
-  void invoke(T param);
+  void invoke(T param) throws Exception;
 }

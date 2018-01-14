@@ -5,5 +5,5 @@ package com.damianogiusti.taskdecorator.internal;
  */
 public interface Function {
 
-  void invoke();
+  void invoke() throws Exception;
 }

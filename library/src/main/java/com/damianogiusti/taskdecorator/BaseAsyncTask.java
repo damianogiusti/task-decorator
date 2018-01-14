@@ -4,6 +4,8 @@ import android.os.AsyncTask;
 
 import com.damianogiusti.taskdecorator.contracts.Task;
 import com.damianogiusti.taskdecorator.internal.Function;
+import com.damianogiusti.taskdecorator.internal.OnErrorNotImplementedException;
+import com.damianogiusti.taskdecorator.internal.TaskUncaughtException;
 import com.damianogiusti.taskdecorator.internal.UnaryFunction;
 
 /**
@@ -20,11 +22,18 @@ class BaseAsyncTask<I, O> extends AsyncTask<I, Void, Object> {
   @Override protected final void onPreExecute() {
     Function onStarted = realTask.onStarted;
     if (onStarted != null) {
-      onStarted.invoke();
+      try {
+        // Try to perform the onStarted block.
+        onStarted.invoke();
+      } catch (Exception e) {
+        // If something goes wrong, dispatch the error.
+        dispatchError(e);
+      }
     }
   }
 
-  @SafeVarargs @Override protected final Object doInBackground(I... params) {
+  @SafeVarargs
+  @Override protected final Object doInBackground(I... params) {
     try {
       I param = params[0];
       return realTask.run(param);
@@ -39,25 +48,43 @@ class BaseAsyncTask<I, O> extends AsyncTask<I, Void, Object> {
     if (realTask == null) return;
 
     UnaryFunction<O> onSuccess = realTask.onSuccess;
-    UnaryFunction<Throwable> onError = realTask.onError;
     Function onCompleted = realTask.onCompleted;
     boolean success = !(result instanceof Throwable);
+    boolean executionFailed = false;
 
     if (success) {
+      // We got a successful background execution.
       if (onSuccess != null) {
-        onSuccess.invoke((O) result);
+        try {
+          // Try to perform the onSuccess block.
+          onSuccess.invoke((O) result);
+        } catch (Exception e) {
+          // If something goes wrong, dispatch the error.
+          dispatchError(e);
+          executionFailed = true;
+        }
       }
     } else {
-      if (onError != null) {
-        onError.invoke((Throwable) result);
+      // The background execution failed with an error, so dispatch it.
+      dispatchError((Throwable) result);
+      executionFailed = true;
+    }
+
+    if (onCompleted != null && !executionFailed) {
+      // If the onCompleted block was implemented and the execution was successful...
+      try {
+        // Try to perform the onCompleted block.
+        onCompleted.invoke();
+      } catch (Exception e) {
+        // If something goes wrong, dispatch the error.
+        dispatchError(e);
+        executionFailed = true;
       }
     }
 
-    if (onCompleted != null) {
-      onCompleted.invoke();
-    }
-
-    if (success) {
+    // If the background execution succeeded and the execution was successful,
+    // run the chained task and the subsequent task.
+    if (success && !executionFailed) {
       Task chainedTask = realTask.chainedTask;
       if (chainedTask != null) {
         chainedTask.execute(result);
@@ -66,6 +93,26 @@ class BaseAsyncTask<I, O> extends AsyncTask<I, Void, Object> {
       if (subsequentTask != null) {
         subsequentTask.execute(realTask.subsequentParam);
       }
+    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Private methods
+  ///////////////////////////////////////////////////////////////////////////
+
+  private void dispatchError(Throwable error) {
+    UnaryFunction<Throwable> block = realTask.onError;
+    if (block != null) {
+      try {
+        // Try to perform the onError block.
+        block.invoke(error);
+      } catch (Exception e) {
+        // If something goes wrong, throw an exception
+        // since the onError block is faulty.
+        throw new TaskUncaughtException(e);
+      }
+    } else {
+      throw new OnErrorNotImplementedException();
     }
   }
 }
